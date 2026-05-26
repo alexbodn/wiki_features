@@ -8,7 +8,6 @@ object BoundingBoxUtils {
 
     fun parseBboxFromIntentText(text: String): Bbox? {
         // Regex to find things like ?bbox=minLon,minLat,maxLon,maxLat
-        // OR directly search for 4 floats separated by commas
         val bboxRegex = Regex("(?i)bbox=(-?\\d+\\.\\d+),(-?\\d+\\.\\d+),(-?\\d+\\.\\d+),(-?\\d+\\.\\d+)")
         val match = bboxRegex.find(text)
         if (match != null) {
@@ -24,7 +23,53 @@ object BoundingBoxUtils {
             return Bbox(minLat.toDouble(), minLon.toDouble(), maxLat.toDouble(), maxLon.toDouble())
         }
 
+        // Fallback: parse geo URI or standard http URLs for lat, lon, and z (zoom)
+        // e.g. geo:37.78,-122.40?z=14 OR https://osmand.net/go?lat=37.78&lon=-122.40&z=14
+        val geoZoomRegex = Regex("(?i)(?:geo:|[?&]lat=)(-?\\d+\\.\\d+)[,&](?:lon=)?(-?\\d+\\.\\d+).*?[?&]z=(\\d+)")
+        val geoZoomMatch = geoZoomRegex.find(text)
+        if (geoZoomMatch != null) {
+            val (latStr, lonStr, zoomStr) = geoZoomMatch.destructured
+            val lat = latStr.toDouble()
+            val lon = lonStr.toDouble()
+            val zoom = zoomStr.toDouble()
+
+            val radiusMeters = calculateRadiusFromZoom(lat, zoom)
+            return createBboxFromCenterAndRadius(lat, lon, radiusMeters)
+        }
+
+        // geo:lat,lon without zoom, assume zoom 15
+        val geoRegex = Regex("(?i)geo:(-?\\d+\\.\\d+),(-?\\d+\\.\\d+)")
+        val geoMatch = geoRegex.find(text)
+        if (geoMatch != null) {
+            val (latStr, lonStr) = geoMatch.destructured
+            val lat = latStr.toDouble()
+            val lon = lonStr.toDouble()
+            val radiusMeters = calculateRadiusFromZoom(lat, 15.0)
+            return createBboxFromCenterAndRadius(lat, lon, radiusMeters)
+        }
+
         return null
+    }
+
+    private fun calculateRadiusFromZoom(lat: Double, zoom: Double): Double {
+        val earthCircumference = 40075016.686
+        val metersPerPixel = earthCircumference * cos(lat * Math.PI / 180) / (256 * 2.0.pow(zoom))
+        // Assume a visible area of roughly 1080 pixels (540 pixels radius)
+        return metersPerPixel * 540.0
+    }
+
+    private fun createBboxFromCenterAndRadius(centerLat: Double, centerLon: Double, radiusMeters: Double): Bbox {
+        val rEarth = 6371e3 // meters
+
+        val latOffset = (radiusMeters / rEarth) * (180 / Math.PI)
+        val lonOffset = (radiusMeters / (rEarth * cos(centerLat * Math.PI / 180))) * (180 / Math.PI)
+
+        return Bbox(
+            minLat = centerLat - latOffset,
+            minLon = centerLon - lonOffset,
+            maxLat = centerLat + latOffset,
+            maxLon = centerLon + lonOffset
+        )
     }
 
     // Returns center Lat, center Lon, and radius in meters
