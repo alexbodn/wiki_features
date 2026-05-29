@@ -17,6 +17,7 @@ object OverpassRetrofitClient {
         val original = chain.request()
         val request = original.newBuilder()
             .header("User-Agent", "GeoSearchApp/1.0 (https://github.com/geosearch; geosearch@example.com)")
+            .header("Accept", "application/json")
             .build()
         chain.proceed(request)
     }.build()
