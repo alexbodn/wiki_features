@@ -7,7 +7,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 
 object OverpassRetrofitClient {
-    private const val BASE_URL = "https://overpass-api.de/"
+    private const val BASE_URL = "http://overpass-api.de/"
 
     private val moshi = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())
@@ -16,8 +16,7 @@ object OverpassRetrofitClient {
     private val httpClient = OkHttpClient.Builder().addInterceptor { chain ->
         val original = chain.request()
         val request = original.newBuilder()
-            .header("User-Agent", "GeoSearchApp/1.0 (https://github.com/geosearch; geosearch@example.com)")
-            .header("Accept", "application/json") // Added back the Accept header that was accidentally removed
+            .header("User-Agent", "GeoSearchApp/1.0 (https://github.com/geosearch)")
             .build()
         chain.proceed(request)
     }.build()
