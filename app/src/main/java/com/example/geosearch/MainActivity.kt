@@ -138,7 +138,11 @@ class MainActivity : AppCompatActivity() {
                             imageUrl = getWikimediaCommonsUrl(filename)
                         }
 
-                        val thumbnail = imageUrl?.let { Thumbnail(it, 300, 300) }
+                        if (imageUrl == null) {
+                            return@mapNotNull null // Filter out any location without an image
+                        }
+
+                        val thumbnail = Thumbnail(imageUrl, 300, 300)
 
                         Page(
                             pageid = element.id,
@@ -147,7 +151,14 @@ class MainActivity : AppCompatActivity() {
                             thumbnail = thumbnail
                         )
                     }
-                    adapter.setPages(pages)
+
+                    if (pages.isNotEmpty()) {
+                        adapter.setPages(pages)
+                    } else {
+                        Toast.makeText(this@MainActivity, "No features with valid images found in this area", Toast.LENGTH_LONG).show()
+                        adapter.setPages(emptyList())
+                        binding.tvEmptyState.visibility = View.VISIBLE
+                    }
                 } else {
                     Toast.makeText(this@MainActivity, "No features with images found in this area", Toast.LENGTH_LONG).show()
                     adapter.setPages(emptyList())
@@ -164,7 +175,7 @@ class MainActivity : AppCompatActivity() {
     private fun getWikimediaCommonsUrl(filename: String): String {
         // Wikimedia Commons format: https://upload.wikimedia.org/wikipedia/commons/a/ab/Filename.jpg
         // The first hash char is md5(filename)[0], second is md5(filename)[0..1]
-        var name = filename.replace("File:", "").replace(" ", "_")
+        val name = filename.replace("File:", "").replace(" ", "_")
         try {
             val md = MessageDigest.getInstance("MD5")
             val hash = md.digest(name.toByteArray(Charsets.UTF_8))
